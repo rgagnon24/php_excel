@@ -1964,6 +1964,29 @@ EXCEL_METHOD(Sheet, setCellFormat)
 /* }}} */
 #endif
 
+/* Replacement for xlSheetIsDate(sheet, row, col) as it sometimes returns true even if
+ * the cell is NOT a DATE.
+ * [ used by EXCEL_METHOD(Sheet, isDate) and php_excel_read_cell() ]
+ */
+static int php_excel_format_is_date(FormatHandle *format) {
+	switch(xlFormatNumFormat(*format)) {
+		case NUMFORMAT_DATE:
+		case NUMFORMAT_CUSTOM_D_MON_YY:
+		case NUMFORMAT_CUSTOM_D_MON:
+		case NUMFORMAT_CUSTOM_MON_YY:
+		case NUMFORMAT_CUSTOM_HMM_AM:
+		case NUMFORMAT_CUSTOM_HMMSS_AM:
+		case NUMFORMAT_CUSTOM_HMM:
+		case NUMFORMAT_CUSTOM_HMMSS:
+		case NUMFORMAT_CUSTOM_MDYYYY_HMM:
+		case NUMFORMAT_CUSTOM_MMSS:
+		case NUMFORMAT_CUSTOM_H0MMSS:
+		case NUMFORMAT_CUSTOM_MMSS0:
+			return 1;
+	}
+	return 0;
+}
+
 static zend_bool php_excel_read_cell(unsigned short row, unsigned short col, zval *val, SheetHandle sheet, BookHandle book, FormatHandle *format)
 {
 	switch (xlSheetCellType(sheet, row, col)) {
@@ -1971,30 +1994,25 @@ static zend_bool php_excel_read_cell(unsigned short row, unsigned short col, zva
 			ZVAL_EMPTY_STRING(val);
 			return 1;
 
-		case CELLTYPE_BLANK: { /* for reading a blank cell, libXL requires the format not to be NULL */
-			FormatHandle f = format ? *format : NULL;
-			if (!xlSheetReadBlank(sheet, row, col, &f)) {
+		case CELLTYPE_BLANK: 
+			if (!xlSheetReadBlank(sheet, row, col, format)) {
 				return 0;
-			} else {
-				ZVAL_NULL(val);
-				return 1;
 			}
-		}
+			ZVAL_NULL(val);
+			return 1;
 
 		case CELLTYPE_NUMBER: {
 			double d = xlSheetReadNum(sheet, row, col, format);
-			if (xlSheetIsDate(sheet, row, col)) {
+			if (php_excel_format_is_date(format)) {
 				int dt = _php_excel_date_unpack(book, d);
 				if (dt == -1) {
 					return 0;
-				} else {
-					ZVAL_LONG(val, dt);
-					return 1;
 				}
-			} else {
-				ZVAL_DOUBLE(val, d);
+				ZVAL_LONG(val, dt);
 				return 1;
 			}
+			ZVAL_DOUBLE(val, d);
+			return 1;
 		}
 
 		case CELLTYPE_STRING: {
@@ -2007,9 +2025,8 @@ static zend_bool php_excel_read_cell(unsigned short row, unsigned short col, zva
 			if (s) {
 				ZVAL_STRING(val, (char *)s, 1);
 				return 1;
-			} else {
-				return 0;
 			}
+			return 0;
 		}
 
 		case CELLTYPE_BOOLEAN:
@@ -2035,6 +2052,7 @@ EXCEL_METHOD(Sheet, readRow)
 	unsigned short lc;
 	SheetHandle sheet;
 	BookHandle book;
+	FormatHandle format = NULL;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l|ll", &row, &col_start, &col_end) == FAILURE) {
 		RETURN_FALSE;
@@ -2069,7 +2087,7 @@ EXCEL_METHOD(Sheet, readRow)
 		zval *value;
 
 		MAKE_STD_ZVAL(value);
-		if (!php_excel_read_cell(row, lc, value, sheet, book, NULL)) {
+		if (!php_excel_read_cell(row, lc, value, sheet, book, &format)) {
 			zval_ptr_dtor(&value);
 			zval_dtor(return_value);
 			RETURN_FALSE;
@@ -2093,6 +2111,7 @@ EXCEL_METHOD(Sheet, readCol)
 	unsigned short lc;
 	SheetHandle sheet;
 	BookHandle book;
+	FormatHandle format = NULL;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l|ll", &col, &row_start, &row_end) == FAILURE) {
 		RETURN_FALSE;
@@ -2127,7 +2146,7 @@ EXCEL_METHOD(Sheet, readCol)
 		zval *value;
 
 		MAKE_STD_ZVAL(value);
-		if (!php_excel_read_cell(lc, col, value, sheet, book, NULL)) {
+		if (!php_excel_read_cell(lc, col, value, sheet, book, &format)) {
 			zval_ptr_dtor(&value);
 			zval_dtor(return_value);
 			RETURN_FALSE;
@@ -2371,7 +2390,23 @@ EXCEL_METHOD(Sheet, isFormula)
 	Determine if the cell contains a date */
 EXCEL_METHOD(Sheet, isDate)
 {
-	PHP_EXCEL_SHEET_GET_BOOL_STATE(IsDate)
+	SheetHandle sheet;
+	FormatHandle format = NULL;
+	zval *object = getThis();
+	long r, c;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &r, &c) == FAILURE) {
+		RETURN_FALSE;
+	}
+	SHEET_FROM_OBJECT(sheet, object);
+
+	if (xlSheetCellType(sheet, r, c) != CELLTYPE_NUMBER) {
+		RETURN_FALSE;
+	}
+
+	xlSheetReadNum(sheet, r, c, &format);
+
+	RETURN_BOOL(php_excel_format_is_date(&format));
 }
 /* }}} */
 

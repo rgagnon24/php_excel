@@ -2049,6 +2049,9 @@ EXCEL_METHOD(Sheet, readRow)
 	long row;
 	long col_start = 0;
 	long col_end = -1;
+	unsigned short fr;
+	unsigned short lr;
+	unsigned short fc;
 	unsigned short lc;
 	SheetHandle sheet;
 	BookHandle book;
@@ -2060,14 +2063,17 @@ EXCEL_METHOD(Sheet, readRow)
 
 	SHEET_AND_BOOK_FROM_OBJECT(sheet, book, object);
 
-	if (row < 0 || row > xlSheetLastRow(sheet)) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid row number '%ld'", row);
+	fr = xlSheetFirstRow(sheet);
+	lr = xlSheetLastRow(sheet) - 1;
+	if (row < 0 || row > lr) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid row number '%ld' not between %ld and %ld", row, fr, lr);
 		RETURN_FALSE;
 	}
 
-	lc = xlSheetLastCol(sheet);
-	if (col_start < 0 || col_start > lc) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid starting column number '%ld'", col_start);
+	fc = xlSheetFirstCol(sheet);
+	lc = xlSheetLastCol(sheet) - 1;
+	if (col_start < fc || col_start > lc) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid starting column number '%ld' not between %ld and %ld", col_start, fc, lc);
 		RETURN_FALSE;
 	}
 
@@ -2076,14 +2082,14 @@ EXCEL_METHOD(Sheet, readRow)
 	}
 
 	if (col_end < col_start || col_end > lc) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid ending column number '%ld'", col_end);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid ending column number '%ld' not between %ld and %ld", col_end, col_start, lc);
 		RETURN_FALSE;
 	}
 
 	lc = col_start;
 
 	array_init(return_value);
-	while (lc < col_end) {
+	while (lc <= col_end) {
 		zval *value;
 
 		MAKE_STD_ZVAL(value);
@@ -2108,6 +2114,9 @@ EXCEL_METHOD(Sheet, readCol)
 	long col;
 	long row_start = 0;
 	long row_end = -1;
+	unsigned short fr;
+	unsigned short lr;
+	unsigned short fc;
 	unsigned short lc;
 	SheetHandle sheet;
 	BookHandle book;
@@ -2119,42 +2128,45 @@ EXCEL_METHOD(Sheet, readCol)
 
 	SHEET_AND_BOOK_FROM_OBJECT(sheet, book, object);
 
-	if (col < 0 || col > xlSheetLastCol(sheet)) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid column number '%ld'", col);
+	fc = xlSheetFirstCol(sheet);
+	lc = xlSheetLastCol(sheet) - 1;
+	if (col < fc || col > lc) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid column number '%ld' not between %ld and %ld", col, fc, lc);
 		RETURN_FALSE;
 	}
 
-	lc = xlSheetLastRow(sheet);
-	if (row_start < 0 || row_start > lc) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid starting row number '%ld'", row_start);
+	fr = xlSheetFirstRow(sheet);
+	lr = xlSheetLastRow(sheet) - 1;
+	if (row_start < fr || row_start > lr) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid starting row number '%ld' not between %ld and %ld", row_start, fr, lr);
 		RETURN_FALSE;
 	}
 
 	if (row_end == -1) {
-		row_end = lc;
+		row_end = lr;
 	}
 
-	if (row_end < row_start || row_end > lc) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid ending row number '%ld'", row_end);
+	if (row_end < row_start || row_end > lr) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid ending row number '%ld' not between %ld and %ld", row_end, row_start, lr);
 		RETURN_FALSE;
 	}
 
-	lc = row_start;
+	lr = row_start;
 
 	array_init(return_value);
-	while (lc < row_end) {
+	while (lr < row_end) {
 		zval *value;
 
 		MAKE_STD_ZVAL(value);
-		if (!php_excel_read_cell(lc, col, value, sheet, book, &format)) {
+		if (!php_excel_read_cell(lr, col, value, sheet, book, &format)) {
 			zval_ptr_dtor(&value);
 			zval_dtor(return_value);
 			RETURN_FALSE;
 		} else {
-			add_index_zval(return_value, lc, value);
+			add_index_zval(return_value, lr, value);
 		}
 
-		lc++;
+		lr++;
 	}
 }
 /* }}} */

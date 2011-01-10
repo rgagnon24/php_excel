@@ -2083,7 +2083,7 @@ EXCEL_METHOD(Sheet, readRow)
 	lc = col_start;
 
 	array_init(return_value);
-	while (lc <= col_end) {
+	while (lc < col_end) {
 		zval *value;
 
 		MAKE_STD_ZVAL(value);
@@ -2142,7 +2142,7 @@ EXCEL_METHOD(Sheet, readCol)
 	lc = row_start;
 
 	array_init(return_value);
-	while (lc <= row_end) {
+	while (lc < row_end) {
 		zval *value;
 
 		MAKE_STD_ZVAL(value);
@@ -2864,7 +2864,13 @@ EXCEL_METHOD(Sheet, firstRow)
 	Returns the zero-based index of the row after the last row in the sheet that contains a used cell. */
 EXCEL_METHOD(Sheet, lastRow)
 {
-	PHP_EXCEL_INFO(LastRow, IS_LONG)
+	SheetHandle sheet;
+	zval *object = getThis();
+	if (ZEND_NUM_ARGS()) {
+		RETURN_FALSE;
+	}
+	SHEET_FROM_OBJECT(sheet, object);
+	RETURN_LONG(xlSheetLastRow(sheet) - 1);
 }
 /* }}} */
 
@@ -2880,7 +2886,13 @@ EXCEL_METHOD(Sheet, firstCol)
 	Returns the zero-based index of the column after the last column in the sheet that contains a used cell. */
 EXCEL_METHOD(Sheet, lastCol)
 {
-	PHP_EXCEL_INFO(LastCol, IS_LONG)
+	SheetHandle sheet;
+	zval *object = getThis();
+	if (ZEND_NUM_ARGS()) {
+		RETURN_FALSE;
+	}
+	SHEET_FROM_OBJECT(sheet, object);
+	RETURN_LONG(xlSheetLastCol(sheet) - 1);
 }
 /* }}} */
 

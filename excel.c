@@ -348,19 +348,6 @@ static zend_object_value excel_format_object_clone(zval *this_ptr TSRMLS_DC)
 	return new_ov;
 }
 
-static wchar_t * _php_excel_to_wide(const char *string, size_t len, size_t *out_len)
-{
-	wchar_t *buf = safe_emalloc(len, sizeof(wchar_t), 0);
-
-	*out_len = mbstowcs(buf, string, len);
-	if (*out_len == (size_t) -1) {
-		efree(buf);
-		return NULL;
-	}
-
-	return erealloc(buf, (*out_len + 1) * sizeof(wchar_t));
-}
-
 #define EXCEL_METHOD(class_name, function_name) \
     PHP_METHOD(Excel ## class_name, function_name)
 
@@ -1145,17 +1132,7 @@ EXCEL_METHOD(Book, __construct)
 		RETURN_FALSE;
 	}
 
-	if (!(nw = _php_excel_to_wide(name, name_len + 1, &nw_l))) {
-		RETURN_FALSE;
-	}
-	if (!(kw = _php_excel_to_wide(key, key_len + 1, &kw_l))) {
-		efree(nw);
-		RETURN_FALSE;
-	}
-
-	xlBookSetKey(book, nw, kw);
-	efree(nw);
-	efree(kw);
+	xlBookSetKey(book, name, key);
 }
 /* }}} */
 
@@ -1964,29 +1941,6 @@ EXCEL_METHOD(Sheet, setCellFormat)
 /* }}} */
 #endif
 
-/* Replacement for xlSheetIsDate(sheet, row, col) as it sometimes returns true even if
- * the cell is NOT a DATE.
- * [ used by EXCEL_METHOD(Sheet, isDate) and php_excel_read_cell() ]
- */
-static int php_excel_format_is_date(FormatHandle *format) {
-	switch(xlFormatNumFormat(*format)) {
-		case NUMFORMAT_DATE:
-		case NUMFORMAT_CUSTOM_D_MON_YY:
-		case NUMFORMAT_CUSTOM_D_MON:
-		case NUMFORMAT_CUSTOM_MON_YY:
-		case NUMFORMAT_CUSTOM_HMM_AM:
-		case NUMFORMAT_CUSTOM_HMMSS_AM:
-		case NUMFORMAT_CUSTOM_HMM:
-		case NUMFORMAT_CUSTOM_HMMSS:
-		case NUMFORMAT_CUSTOM_MDYYYY_HMM:
-		case NUMFORMAT_CUSTOM_MMSS:
-		case NUMFORMAT_CUSTOM_H0MMSS:
-		case NUMFORMAT_CUSTOM_MMSS0:
-			return 1;
-	}
-	return 0;
-}
-
 static zend_bool php_excel_read_cell(unsigned short row, unsigned short col, zval *val, SheetHandle sheet, BookHandle book, FormatHandle *format)
 {
 	switch (xlSheetCellType(sheet, row, col)) {
@@ -2003,7 +1957,7 @@ static zend_bool php_excel_read_cell(unsigned short row, unsigned short col, zva
 
 		case CELLTYPE_NUMBER: {
 			double d = xlSheetReadNum(sheet, row, col, format);
-			if (php_excel_format_is_date(format)) {
+			if (xlSheetIsDate(sheet, row, col)) {
 				int dt = _php_excel_date_unpack(book, d);
 				if (dt == -1) {
 					return 0;
@@ -2402,23 +2356,7 @@ EXCEL_METHOD(Sheet, isFormula)
 	Determine if the cell contains a date */
 EXCEL_METHOD(Sheet, isDate)
 {
-	SheetHandle sheet;
-	FormatHandle format = NULL;
-	zval *object = getThis();
-	long r, c;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &r, &c) == FAILURE) {
-		RETURN_FALSE;
-	}
-	SHEET_FROM_OBJECT(sheet, object);
-
-	if (xlSheetCellType(sheet, r, c) != CELLTYPE_NUMBER) {
-		RETURN_FALSE;
-	}
-
-	xlSheetReadNum(sheet, r, c, &format);
-
-	RETURN_BOOL(php_excel_format_is_date(&format));
+	PHP_EXCEL_SHEET_GET_BOOL_STATE(IsDate);
 }
 /* }}} */
 

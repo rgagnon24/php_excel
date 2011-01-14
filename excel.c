@@ -1086,8 +1086,6 @@ EXCEL_METHOD(Book, __construct)
 	zval *object = getThis();
 	char *name = NULL, *key;
 	int name_len = 0, key_len = 0;
-	wchar_t *nw, *kw;
-	size_t nw_l, kw_l;
 #ifdef LIBXL_VERSION
 	zend_bool new_excel = 0;
 

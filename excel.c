@@ -490,7 +490,7 @@ EXCEL_METHOD(Book, getSheet)
 }
 /* }}} */
 
-/* {{{ proto ExcelSheet ExcelBook::getSheetByName(string name)
+/* {{{ proto ExcelSheet ExcelBook::getSheetByName(string name [, bool case_insensitive])
    Get an excel sheet by name. */
 EXCEL_METHOD(Book, getSheetByName)
 {
@@ -499,12 +499,12 @@ EXCEL_METHOD(Book, getSheetByName)
 	char *sheet_name; 
 	int sheet_name_len = 0;
 	long sheet = -1;
-	SheetHandle sh;
 	excel_sheet_object *fo;
 	long sheet_count = 0;
+	zend_bool case_s = 0;
 	const char *s;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &sheet_name, &sheet_name_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|b", &sheet_name, &sheet_name_len, &case_s) == FAILURE) {
 		RETURN_FALSE;
 	}
 
@@ -514,33 +514,28 @@ EXCEL_METHOD(Book, getSheetByName)
 
 	BOOK_FROM_OBJECT(book, object);
 
-	// scan all sheets looking for sheet_name
 	sheet_count = xlBookSheetCount(book);
 	for(sheet = 0; sheet < sheet_count; sheet++) {
-		sh = xlBookGetSheet(book, sheet);
+		SheetHandle sh = xlBookGetSheet(book, sheet);
 		if (sh) {
 			s = xlSheetName(sh);
 			if (s) {
-				if (strcmp(s, sheet_name) == 0) {
-					// found, so exit the loop
-					sheet = sheet_count;
-				} else {
-					sh = NULL;
+				if ((case_s && !strcasecmp(s, sheet_name)) || (!case_s && !strcmp(s, sheet_name))) {
+					Z_TYPE_P(return_value) = IS_OBJECT;
+					object_init_ex(return_value, excel_ce_sheet);
+					Z_SET_REFCOUNT_P(return_value, 1);
+					Z_SET_ISREF_P(return_value);
+					fo = (excel_sheet_object *) zend_object_store_get_object(return_value TSRMLS_CC);
+					fo->sheet = sh;
+					fo->book = book;
+
+					return; 
 				}
 			}
 		}
 	}
-	if (!sh) {
-		RETURN_FALSE;
-	}
 
-	Z_TYPE_P(return_value) = IS_OBJECT;
-	object_init_ex(return_value, excel_ce_sheet);
-	Z_SET_REFCOUNT_P(return_value, 1);
-	Z_SET_ISREF_P(return_value);
-	fo = (excel_sheet_object *) zend_object_store_get_object(return_value TSRMLS_CC);
-	fo->sheet = sh;
-	fo->book = book;
+	RETURN_FALSE;
 }
 /* }}} */
 
@@ -1999,7 +1994,7 @@ EXCEL_METHOD(Sheet, readRow)
 {
 	zval *object = getThis();
 	long row;
-	long col_start = 0;
+	long col_start = -1;
 	long col_end = -1;
 	unsigned short fr;
 	unsigned short lr;
@@ -2017,20 +2012,22 @@ EXCEL_METHOD(Sheet, readRow)
 
 	fr = xlSheetFirstRow(sheet);
 	lr = xlSheetLastRow(sheet) - 1;
-	if (row < 0 || row > lr) {
+	if (row < fr || row > lr) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid row number '%ld' not between %ld and %ld", row, fr, lr);
 		RETURN_FALSE;
 	}
 
 	fc = xlSheetFirstCol(sheet);
 	lc = xlSheetLastCol(sheet) - 1;
+	if (col_start == -1) {
+		col_start = fc;
+	}
+	if (col_end == -1) {
+		col_end = lc;
+	}
 	if (col_start < fc || col_start > lc) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid starting column number '%ld' not between %ld and %ld", col_start, fc, lc);
 		RETURN_FALSE;
-	}
-
-	if (col_end == -1) {
-		col_end = lc;
 	}
 
 	if (col_end < col_start || col_end > lc) {
@@ -2064,7 +2061,7 @@ EXCEL_METHOD(Sheet, readCol)
 {
 	zval *object = getThis();
 	long col;
-	long row_start = 0;
+	long row_start = -1;
 	long row_end = -1;
 	unsigned short fr;
 	unsigned short lr;
@@ -2089,13 +2086,15 @@ EXCEL_METHOD(Sheet, readCol)
 
 	fr = xlSheetFirstRow(sheet);
 	lr = xlSheetLastRow(sheet) - 1;
+	if (row_start == -1) {
+		row_start = fr;
+	}
+	if (row_end == -1) {
+		row_end = lr;
+	}
 	if (row_start < fr || row_start > lr) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid starting row number '%ld' not between %ld and %ld", row_start, fr, lr);
 		RETURN_FALSE;
-	}
-
-	if (row_end == -1) {
-		row_end = lr;
 	}
 
 	if (row_end < row_start || row_end > lr) {
@@ -3382,6 +3381,7 @@ ZEND_END_ARG_INFO()
 PHP_EXCEL_ARGINFO
 ZEND_BEGIN_ARG_INFO_EX(arginfo_Book_getSheetByName, 0, 0, 1)
 	ZEND_ARG_INFO(0, name)
+	ZEND_ARG_INFO(0, case_insensitive)
 ZEND_END_ARG_INFO()
 
 PHP_EXCEL_ARGINFO

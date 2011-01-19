@@ -54,7 +54,7 @@ static long xlFormatBorderColor(FormatHandle f)
 #define PHP_EXCEL_FORMULA 2
 #define PHP_EXCEL_NUMERIC_STRING 3
 
-#define PHP_EXCEL_VERSION "0.9.1"
+#define PHP_EXCEL_VERSION "0.9.1-rg"
 
 #ifdef COMPILE_DL_EXCEL
 ZEND_GET_MODULE(excel)
@@ -4627,9 +4627,17 @@ PHP_MINIT_FUNCTION(excel)
  */
 PHP_MINFO_FUNCTION(excel)
 {
+	char libxl_v[11] = "00.00.0000";
+
+	sprintf(libxl_v, "%x.%x.%x%x",
+		LIBXL_VERSION >> 24,
+		LIBXL_VERSION >> 16 & 0xff,
+		LIBXL_VERSION >> 8 & 0xff,
+		LIBXL_VERSION & 0xff);
 	php_info_print_table_start();
-	php_info_print_table_header(2, "excel support", "enabled");
-	php_info_print_table_header(2, "Excel Version", PHP_EXCEL_VERSION);
+	php_info_print_table_header(2, "Excel Support", "enabled");
+	php_info_print_table_row(2, "Excel Version", PHP_EXCEL_VERSION);
+	php_info_print_table_row(2, "Complied Against libxl Version", libxl_v);
 	php_info_print_table_end();
 }
 /* }}} */

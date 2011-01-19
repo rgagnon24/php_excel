@@ -348,7 +348,7 @@ static zend_object_value excel_format_object_clone(zval *this_ptr TSRMLS_DC)
 	return new_ov;
 }
 
-#if LIBXL_VERSION <= 0x03010000 
+#if LIBXL_VERSION <= 0x03010000
 static wchar_t * _php_excel_to_wide(const char *string, size_t len, size_t *out_len)
 {
 	wchar_t *buf = safe_emalloc(len, sizeof(wchar_t), 0);
@@ -361,7 +361,7 @@ static wchar_t * _php_excel_to_wide(const char *string, size_t len, size_t *out_
 
 	return erealloc(buf, (*out_len + 1) * sizeof(wchar_t));
 }
-#endif 
+#endif
 
 #define EXCEL_METHOD(class_name, function_name) \
     PHP_METHOD(Excel ## class_name, function_name)
@@ -511,11 +511,11 @@ EXCEL_METHOD(Book, getSheetByName)
 {
 	BookHandle book;
 	zval *object = getThis();
-	char *sheet_name; 
-	int sheet_name_len = 0;
-	long sheet = -1;
+	char *sheet_name;
+	int sheet_name_len;
+	long sheet;
 	excel_sheet_object *fo;
-	long sheet_count = 0;
+	long sheet_count;
 	zend_bool case_s = 0;
 	const char *s;
 
@@ -544,7 +544,7 @@ EXCEL_METHOD(Book, getSheetByName)
 					fo->sheet = sh;
 					fo->book = book;
 
-					return; 
+					return;
 				}
 			}
 		}
@@ -1088,7 +1088,7 @@ EXCEL_METHOD(Book, setLocale)
 }
 /* }}} */
 
-/* {{{ proto ExcelBook ExcelBook::__construct(string license_name, string license_key [, bool excel_2007 = false])
+/* {{{ proto ExcelBook ExcelBook::__construct([string license_name, string license_key [, bool excel_2007 = false]])
     Book Contructor. */
 EXCEL_METHOD(Book, __construct)
 {
@@ -1973,7 +1973,7 @@ static zend_bool php_excel_read_cell(unsigned short row, unsigned short col, zva
 			ZVAL_EMPTY_STRING(val);
 			return 1;
 
-		case CELLTYPE_BLANK: 
+		case CELLTYPE_BLANK:
 			if (!xlSheetReadBlank(sheet, row, col, format)) {
 				return 0;
 			}

@@ -4637,7 +4637,7 @@ PHP_MINFO_FUNCTION(excel)
 	php_info_print_table_start();
 	php_info_print_table_header(2, "Excel Support", "enabled");
 	php_info_print_table_row(2, "Excel Version", PHP_EXCEL_VERSION);
-	php_info_print_table_row(2, "Complied Against libxl Version", libxl_v);
+	php_info_print_table_row(2, "Compiled Against libxl Version", libxl_v);
 	php_info_print_table_end();
 }
 /* }}} */

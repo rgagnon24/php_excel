@@ -54,7 +54,7 @@ static long xlFormatBorderColor(FormatHandle f)
 #define PHP_EXCEL_FORMULA 2
 #define PHP_EXCEL_NUMERIC_STRING 3
 
-#define PHP_EXCEL_VERSION "0.9.1-rg"
+#define PHP_EXCEL_VERSION "0.9.1-rg2"
 
 #ifdef COMPILE_DL_EXCEL
 ZEND_GET_MODULE(excel)
@@ -1966,6 +1966,29 @@ EXCEL_METHOD(Sheet, setCellFormat)
 /* }}} */
 #endif
 
+/* Replacement for xlSheetIsDate(sheet, row, col) as it sometimes returns true even if
+ * the cell is NOT a DATE.
+ * [ used by EXCEL_METHOD(Sheet, isDate) and php_excel_read_cell() ]
+ */
+static int php_excel_format_is_date(FormatHandle *format) {
+	switch(xlFormatNumFormat(*format)) {
+		case NUMFORMAT_DATE:
+		case NUMFORMAT_CUSTOM_D_MON_YY:
+		case NUMFORMAT_CUSTOM_D_MON:
+		case NUMFORMAT_CUSTOM_MON_YY:
+		case NUMFORMAT_CUSTOM_HMM_AM:
+		case NUMFORMAT_CUSTOM_HMMSS_AM:
+		case NUMFORMAT_CUSTOM_HMM:
+		case NUMFORMAT_CUSTOM_HMMSS:
+		case NUMFORMAT_CUSTOM_MDYYYY_HMM:
+		case NUMFORMAT_CUSTOM_MMSS:
+		case NUMFORMAT_CUSTOM_H0MMSS:
+		case NUMFORMAT_CUSTOM_MMSS0:
+		return 1;
+	}
+	return 0;
+}
+
 static zend_bool php_excel_read_cell(unsigned short row, unsigned short col, zval *val, SheetHandle sheet, BookHandle book, FormatHandle *format)
 {
 	switch (xlSheetCellType(sheet, row, col)) {
@@ -1982,11 +2005,7 @@ static zend_bool php_excel_read_cell(unsigned short row, unsigned short col, zva
 
 		case CELLTYPE_NUMBER: {
 			double d = xlSheetReadNum(sheet, row, col, format);
-#if LIBXL_VERSION <= 0x03010000
-			if (xlSheetIsDate(sheet, row, col) && xlFormatNumFormat(*format) < 100) {
-#else
-			if (xlSheetIsDate(sheet, row, col)) {
-#endif
+			if (php_excel_format_is_date(format)) {
 				int dt = _php_excel_date_unpack(book, d);
 				if (dt == -1) {
 					return 0;
@@ -2389,28 +2408,23 @@ EXCEL_METHOD(Sheet, isFormula)
 	Determine if the cell contains a date */
 EXCEL_METHOD(Sheet, isDate)
 {
-#if LIBXL_VERSION <= 0x03010000
+	SheetHandle sheet;
+	FormatHandle format = NULL;
 	zval *object = getThis();
 	long r, c;
-	double d;
-	FormatHandle format = NULL;
-	SheetHandle sheet;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &r, &c) == FAILURE) {
 		RETURN_FALSE;
 	}
-
 	SHEET_FROM_OBJECT(sheet, object);
 
 	if (xlSheetCellType(sheet, r, c) != CELLTYPE_NUMBER) {
 		RETURN_FALSE;
 	}
 
-	d = xlSheetReadNum(sheet, r, c, &format);
-	RETURN_BOOL(xlSheetIsDate(sheet, r, c) && (!format || (xlFormatNumFormat(format) < 100)));
-#else
-	PHP_EXCEL_SHEET_GET_BOOL_STATE(IsDate);
-#endif
+	xlSheetReadNum(sheet, r, c, &format);
+
+	RETURN_BOOL(php_excel_format_is_date(&format));
 }
 /* }}} */
 
